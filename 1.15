@@ -1,0 +1,326 @@
+#include<iostream>
+#include<cstdlib>
+#include<ctime>
+#include<vector>
+#include<algorithm>
+using namespace std;
+class Task {
+public:
+	double data;
+	double exc;
+};
+class Node {
+public:
+	double pos;
+	int sp;
+	double rt1=0;//准备时间
+	double rt2;
+	int amount;//车辆上是否有任务
+};
+vector<vector<double>> wt(5);//完成时间数组
+vector<int> v;
+
+
+/*double comtime(double dat,double exc,int pos,int sp) {
+	int road[7]= {30,80,165,285,370,420,450};
+	int bandw[7]= {3,6,12,24,12,6,3};
+	double ud[7]= {4.5}; //每一段传输的数据量
+	for(int i=1; i<7; i++)
+		ud[i]=(road[i]-road[i-1])/20*bandw[i];
+	//vector<double> wt;
+	//double tmin=1000;
+	double t_dat=0;
+	double t_exc=0;
+	double t_com=0;
+	int k=0;
+	for(int h=0; h<7; h++) {
+		if(pos<road[h]) {
+			k=h;//车辆在道路的第k段
+			break;
+		}
+	}
+	double uc=(road[k]-pos)/20*bandw[k];
+	if(uc>=dat)
+		t_dat=dat/bandw[k];
+	else {
+		t_dat=(road[k]-pos)/20;
+		dat-=uc;
+		for(int h=k+1; h<7; h++) {
+			if(dat<=ud[h]) {
+				t_dat+=dat/bandw[h];
+				break;
+			} else {
+				dat-=ud[h];
+				t_dat+=(road[h]-road[h-1])/20;
+			}
+		}
+	}
+	//数据传输过程结束
+	t_exc=exc/sp;
+	t_com=t_dat+t_exc;
+	return t_com;
+}*/
+
+
+vector<double> comtime(Task* t, Node* node)
+{
+	int road[7] = { 30,80,165,285,370,420,450 };
+	int bandw[7] = { 3,6,12,24,12,6,3 };
+	double ud[7] = { 4.5 }; //每一段传输的数据量
+	for (int i = 1; i < 7; i++)
+		ud[i] = (road[i] - road[i - 1]) / 20 * bandw[i];
+	for (int i = 0; i < 5; i++)
+	{
+		if (find(v.begin(), v.end(), i) != v.end())
+			continue;//如果任务已经执行过了，就不再执行
+		double tmin = 1000;
+		double tc = 0;
+		double te = 0;
+		double jiedian = 0;
+		double dat = t[i].data;
+		double exc = t[i].exc;//每个任物的数据量和计算量
+		for (int j = 0; j < 3; j++)
+		{
+			double t_dat = 0;
+			double t_exc = 0;
+			double t_com = 0;
+
+			int k = 0;
+			for (int h = 0; h < 7; h++)
+			{
+				if (node[j].pos < road[h])
+				{
+					k = h;//车辆在道路的第k段
+					break;
+				}
+			}
+			double uc = (road[k] - node[j].pos) / 20 * bandw[k];
+			if (uc >= dat)
+				t_dat += dat / bandw[k];
+			else
+			{
+				t_dat += (road[k] - node[j].pos) / 20;
+				dat -= uc;
+				for (int h = k + 1; h < 7; h++)
+				{
+					if (dat <= ud[h])
+					{
+						t_dat += dat / bandw[h];
+						break;
+					}
+					else
+					{
+						dat -= ud[h];
+						t_dat += (road[h] - road[h - 1]) / 20;
+					}
+				}
+			}
+			//数据传输过程结束
+			t_exc = exc / node[j].sp;
+			if (node[j].amount == 0)
+				t_com = t_dat + t_exc + node[j].rt1;
+			//有任务时的完成时间计算
+			else
+			{
+				t_com = node[j].rt2 + t_exc;
+			}
+			if (tmin > t_com)
+			{
+				tc = t_dat;
+				te = t_exc;
+				tmin = t_com;
+				jiedian = j;
+			}
+
+		}
+		wt[i] = { tmin,tc,te,jiedian,double(i) };//最短时间
+		//cout<<"任务"<<i<<"所用时间为："<<tmin<<endl;
+	}
+	//sort(wt.begin(), wt.end());
+	double temp = 1000;
+	int k = 0;
+	for (int i = 0; i < 5&&find(v.begin(), v.end(), i) == v.end(); i++)
+	{
+		if (wt[i][0] < temp)
+		{
+			temp = wt[i][0];
+			k = i;
+		}
+
+	}
+	v.push_back(k);
+	return wt[k];
+}
+/*double comtime(Task* t, Node* node, int count,double &td,int& veh,int& renwu)
+{
+	int road[7] = { 30,80,165,285,370,420,450 };
+	int bandw[7] = { 3,6,12,24,12,6,3 };
+	double ud[7] = { 4.5 }; //每一段传输的数据量
+	for (int i = 1; i < 7; i++)
+		ud[i] = (road[i] - road[i - 1]) / 20 * bandw[i];
+	//vector<vector<double>> wt;//完成时间数组
+	for (int i = 0; i < count; i++)
+	{
+		if (find(v.begin(), v.end(), i) != v.end())
+			continue;//如果任务已经执行过了，就不再执行
+		double tmin = 1000;
+		double tc = 0;
+		double te = 0;
+		double jiedian = 0;
+		double dat = t[i].data;
+		double exc = t[i].exc;//每个任物的数据量和计算量
+		for (int j = 0; j < 3; j++)
+		{
+			double t_dat = 0;
+			double t_exc = 0;
+			double t_com = 0;
+			
+			int k = 0;
+			for (int h = 0; h < 7; h++)
+			{
+				if (node[j].pos < road[h])
+				{
+					k = h;//车辆在道路的第k段
+					break;
+				}
+			}
+			double uc = (road[k] - node[j].pos) / 20 * bandw[k];
+			if (uc >= dat)
+				t_dat += dat / bandw[k];
+			else
+			{
+				t_dat += (road[k] - node[j].pos) / 20;
+				dat -= uc;
+				for (int h = k + 1; h < 7; h++)
+				{
+					if (dat <= ud[h])
+					{
+						t_dat += dat / bandw[h];
+						break;
+					}
+					else
+					{
+						dat -= ud[h];
+						t_dat += (road[h] - road[h - 1]) / 20;
+					}
+				}
+			}
+			//数据传输过程结束
+			t_exc = exc / node[j].sp;
+			if(node[j].amount==0)
+				t_com = t_dat + t_exc + node[j].rt;
+			//有任务时的完成时间计算
+			else
+			{
+
+			}
+			if (tmin > t_com)
+			{
+				tc = t_dat;
+				te = t_exc;
+				tmin = t_com;
+				jiedian = j;
+			}
+
+		}
+		wt[i]={ tmin,tc,te,jiedian };//最短时间
+		//cout<<"任务"<<i<<"所用时间为："<<tmin<<endl;
+	}
+	//sort(wt.begin(), wt.end());
+	double temp = 1000;
+	int k = 0;
+	for (int i = 0; i < count&&find(v.begin(), v.end(), i) == v.end(); i++)
+	{
+		if (wt[i][0] < temp)
+		{
+			temp = wt[i][0];
+			k = i;
+		}
+			
+	}
+	td = wt[k][1];//返回最小完成时间对应的t_dat
+	veh = wt[k][2];//返回最小完成时间对应的车
+	renwu = k;
+	//wt[k][0] = 1000;
+	v.push_back(k);
+	return wt[k];
+}*/
+int main() {
+	Node node[3];//3辆车
+	Task t[5];//5个任务
+	
+	//srand((unsigned)time(NULL));
+	srand(1);
+	for (int i = 0; i < 5; i++) {
+		t[i].data = (rand() % 11)*0.2 + 2;//生成2~4之间的随机数，表示数据量
+		t[i].exc = (rand() % 11) + 20;//20~30之间的随机数，表示计算量
+		cout << "第" << i << "个任务数据量:" << t[i].data << endl;
+		cout << "第" << i << "个任务计算量:" << t[i].exc << endl;
+		cout << endl;
+		if (i >= 3)
+			continue;
+		else {
+			node[i].pos = rand() % 256 + 30;//车辆在30~285之间
+			node[i].sp = rand() % 6 + 15;//计算速度在15~20之间
+			node[i].rt1 = 0;//准备时间默认是0
+			node[i].rt2 = 0;
+			node[i].amount = 0;
+			cout << node[i].pos << "  " << node[i].sp << endl;
+		}
+	}
+	/*
+	for(int i=0; i<5; i++) {
+		int tmin=1000;
+		for(int j=0; j<3; j++) {
+
+			double t_com=comtime(t[i].data,t[i].exc,node[j].pos,node[j].sp);
+			if(tmin>t_com)
+				tmin=t_com;
+		}
+		wt.push_back(tmin);
+	}
+	double tmin=comtime(t[0].data,t[0].exc,node[0].pos,node[0].sp);
+	cout<<tmin<<endl;
+	*/
+	int count=0;//一开始有5个任务
+	double atime = 0;//总时间为15s
+	while(atime<=15)
+	{
+		vector<double> tk = comtime(t, node);//最短完成时间及对应的任务，节点，在节点上的数据传输时间
+		double tmin = tk[0];
+		double tc = tk[1];
+		double te = tk[2];
+		int jiedian = tk[3];
+		int renwu = tk[4];
+		atime += tmin;
+		for (int i = 0; i < 3; i++)
+		{
+			node[i].pos += tc * 20;
+			node[i].rt1 += tc;
+			if (i == renwu)
+			{
+				node[i].amount++;
+				node[i].rt2 = tmin;
+			}
+		}
+		
+		if (atime <= 15)
+		{
+			count++;
+			if (count == 5)
+			{
+
+			}
+		}
+		else
+			break;
+
+		cout << endl;
+		cout << "任务" << renwu << "在节点" << veh << "上完成时间最短" << endl;
+		cout << "完成时间为：" << tmin << endl;
+	}
+	
+	//cout<<tmin<<" "<<td<<endl;
+	system("pause");
+	return 0;
+}
