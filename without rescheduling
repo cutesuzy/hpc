@@ -1,0 +1,293 @@
+#include<iostream>
+#include<stdlib.h>
+#include<ctime>
+#include<vector>
+#include<algorithm>
+using namespace std;
+const int v = 20;
+class Task {
+public:
+	double data;//数据量
+	double exc;//计算量
+	double td;//deadline
+	Task()
+	{
+		data= (rand() % 11) * 0.2 + 2;
+		exc = (rand() % 11) + 20;
+	}
+};
+class Node {
+public:
+	double pos;
+	int sp;//计算速度
+	double rt;//准备时间
+	int isused;
+	Node()
+	{
+		pos = rand() % 256 + 30;
+		sp = rand() % 6 + 15;
+		rt = 0;
+		isused = 0;
+	}
+};
+//candidate node
+class Candi
+{
+public:
+	double t_com;
+	double t_dat;
+	double t_exc;
+	int jiedian;
+};
+
+class Res
+{
+public:
+	int t;
+	int n;
+	double t_com;
+	double t_dat;
+	double t_exc;
+	Res()
+	{
+		t = 0;
+		n = 0;
+		t_com = 0;
+		t_dat = 0;
+		t_exc = 0;
+	}
+};
+vector<Candi> comtime(Task& t, vector<Node>& node,double tused)//需要传进来一个已用时间，已用时间+完成时间<=截止时间
+{
+	vector<Candi> ans;
+	double road[7] = { 30,80,165,285,370,420,450 };
+	double bandw[7] = { 3,6,12,24,12,6,3 };
+	double ud[7] = { 4.5 }; //每一段传输的数据量
+	for (int i = 1; i < 7; i++)
+		ud[i] = (road[i] - road[i - 1]) / v * bandw[i];
+	double dat = t.data;
+	double exc = t.exc;
+	double deadline = t.td;
+	for (int j = 0; j < node.size(); j++)
+	{
+		double t_dat = 0;//数据传输时间
+		double t_exc = 0;
+		double t_com = 0;
+		int k = 0;
+		int l;
+		for (l = 0; l < 7; l++)
+		{
+			if (node[j].pos < road[l])
+			{
+				k = l;//车辆在道路的第k段
+				break;
+			}
+		}
+		//节点超过范围的情况
+		if (l == 7)
+			continue;
+		double uc = (road[k] - node[j].pos) / v * bandw[k];
+		if (uc >= dat)
+		{
+			t_dat += dat / bandw[k];
+			dat = 0;
+		}
+		else
+		{
+			t_dat += (road[k] - node[j].pos) / v;
+			dat -= uc;
+			for (int h = k + 1; h < 7; h++)
+			{
+				if (dat <= ud[h])
+				{
+					t_dat += dat / bandw[h];
+					dat = 0;
+					break;
+				}
+				else
+				{
+					dat -= ud[h];
+					t_dat += (road[h] - road[h - 1]) / v;
+				}
+			}
+			if (dat > 0)
+				continue;
+		}
+		//数据传输过程结束
+		t_exc = exc / node[j].sp;
+		if (node[j].rt > t_dat)
+			t_com = t_exc + node[j].rt;
+		else
+			t_com = t_dat + t_exc;
+		if ((node[j].pos + t_com * v) > 450||(tused+t_com)>deadline)
+			continue;
+		Candi tmp;
+		tmp.t_com = t_com;
+		tmp.t_dat = t_dat;
+		tmp.t_exc = t_exc;
+		tmp.jiedian = j;
+		ans.push_back(tmp);
+	}
+	return ans;
+}
+
+/****************************************************************************************/
+vector<Res> output(vector<Task> t, vector<Node> node, int i,int flag)
+{
+	vector<Res> ans;
+	vector<Candi> tmp1 = comtime(t[i], node,0);//任务i的候选节点
+	if (tmp1.size() == 0)
+		return ans;
+	double tmin = tmp1[0].t_com;
+	int n = 0;//node
+	double t_dat = 0;
+	double t_exc = 0;
+	double rt = 0;//ready time
+	if (flag == 0)
+	{
+		for (int j = 0; j < tmp1.size(); j++)
+		{
+			if (tmp1[j].t_com < tmin)
+			{
+				tmin = tmp1[j].t_com;
+				n = tmp1[j].jiedian;
+				t_dat = tmp1[j].t_dat;
+				t_exc = tmp1[j].t_exc;
+				rt = tmp1[j].t_exc;
+			}
+		}
+	}
+	else
+	{
+		for (int j = 0; j < tmp1.size(); j++)
+		{
+			if (tmp1[j].t_com > tmin)
+			{
+				tmin = tmp1[j].t_com;//tmin在这里其实是tmax
+				n = tmp1[j].jiedian;
+				t_dat = tmp1[j].t_dat;
+				t_exc = tmp1[j].t_exc;
+				rt = tmp1[j].t_exc;
+			}
+		}
+	}
+	node[n].rt = rt;
+	Res res;
+	res.n = n;
+	res.t = i;
+	res.t_com = tmin;
+	res.t_dat = t_dat;
+	res.t_exc = t_exc;
+	ans.push_back(res);
+	int tused = t_dat;
+	for (int j = 0; j < node.size(); j++)
+	{
+		node[j].pos += (v * t_dat);
+	}
+	int count = 1;
+	vector<int> finished;
+	finished.push_back(i);
+	while (count<t.size())//任务集为空或连一个任务都无法满足时，退出循环
+	{
+		double t_left = 0;//left time
+		double tczong = 0;
+		for (int k = 0; k < ans.size(); k++)
+			tczong += ans[k].t_dat;
+		for (int j = 0; j < t.size() && find(finished.begin(), finished.end(), j) == finished.end(); j++)
+		{
+			t_left += (t[j].td - tczong);//剩余任务的剩余时间之和
+		}
+		//求优先级
+		double pori = 0;
+		double renwu = 0;
+		Res res2;
+		for (int i = 0; i < t.size() && find(finished.begin(), finished.end(),i)== finished.end(); i++)
+		{
+			double p = 0;
+			double a = 0.4;
+			vector<Candi> tmp2 = comtime(t[i], node, tczong);
+			tmin = 1000;
+			for (int j = 0; j < tmp2.size(); j++)
+			{
+				if (tmp2[j].t_com < tmin)
+				{
+					tmin = tmp2[j].t_com;
+					n = tmp2[j].jiedian;
+					t_dat = tmp2[j].t_dat;
+					t_exc = tmp2[j].t_exc;
+					//rt = tmp2[j].t_exc;
+				}
+			}
+			p = ((1 / (double)t_dat) + (1 / (double)tmin)) * a + t_left * (1 - a);
+			if (pori < p)
+			{
+				pori = p;
+				res2.n = n;
+				res2.t = i;
+				res2.t_com = tmin;
+				res2.t_dat = t_dat;
+				res2.t_exc = t_exc;
+			}
+		}
+		ans.push_back(res2);
+		for (int j = 0; j < node.size(); j++)
+		{
+			node[j].pos += (v * res2.t_dat);
+			if (node[j].rt != 0)
+			{
+				double tmp = node[i].rt - res2.t_dat;
+				if (tmp > 0)
+					node[i].rt = tmp;
+				else
+					node[i].rt = 0;
+			}
+			if (j == res2.n)
+				node[j].rt += res2.t_exc;
+		}
+		count++;
+	}
+	return ans;
+}
+
+int main()
+{
+	//srand((unsigned)time(NULL));
+	srand(1);
+	vector<Task> t(5);
+	vector<Node> node(5);
+	/*for (int i = 0; i < 5; i++)
+	{
+		cout << "任务"<<i<<"数据量"<<t[i].data << endl;
+		cout << "任务" << i << "计算量"<<t[i].exc << endl;
+	}
+	for (int i = 0; i < 5; i++)
+	{
+		cout << "节点" << i << "位置" << t[i].data << endl;
+		cout << "节点" << i << "计算能力" << t[i].exc << endl;
+	}*/
+	vector<Res> res = output(t, node, 0,0);
+	for (int i = 0; i < res.size(); i++)
+	{
+		cout << "任务" << res[i].t << endl;
+	}
+	//for (int i = 0; i < t.size(); i++)
+	//{
+	//	vector<Candi> nums = comtime(t[i], node,0);
+	//	double tmin = 1000;
+	//	int k = 0;
+	//	for (int j = 0; j < nums.size(); j++)
+	//	{
+	//		if (nums[j].t_com < tmin)
+	//		{
+	//			k = j;
+	//			tmin = nums[j].t_com;
+	//		}
+	//	}
+	//	for (int j = 0; j < node.size(); j++)
+	//	{
+	//		node[j].pos += nums[k].t_dat * v;
+
+	//	}
+	//}
+	return 0;
+}
